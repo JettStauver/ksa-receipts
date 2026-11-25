@@ -32,7 +32,8 @@ def record_pdf(rec, out, has_email=False):
     doc = SimpleDocTemplate(out, pagesize=letter, leftMargin=0.7 * inch, rightMargin=0.7 * inch,
                             topMargin=0.6 * inch, bottomMargin=0.6 * inch,
                             title=f"Transaction record - {rec.get('vendor','')}")
-    kind = "INVOICE (no payment confirmation found)" if rec.get("doc_type") == "invoice" else "Receipt / payment"
+    kind = {"invoice": "INVOICE (no payment confirmation found)",
+            "refund": "REFUND (money returned - see the original purchase)"}.get(rec.get("doc_type"), "Receipt / payment")
     story = [
         Paragraph("Transaction Record (generated from email)", ss["Title"]),
         p("Created by Claude from the email below because no receipt file was attached or retrievable. "

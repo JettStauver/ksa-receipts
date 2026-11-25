@@ -31,10 +31,19 @@ def vendor_token(vendor: str) -> str:
 
 
 def vendor_display(vendor: str) -> str:
-    """Existing folder style: words joined by dots, original capitalization, no punctuation."""
-    v = vendor.replace("&", "and").replace("'", "")
-    words = [w for w in re.split(r"[^A-Za-z0-9]+", v) if w and w.lower() not in SUFFIXES]
-    return ".".join(words[:4]) or "Unknown"
+    """Existing folder style: words joined by dots, original capitalization, no punctuation.
+    Drops parentheticals, 'via ...' and web domains, so 'The Den (thedenwaco.prospectportal.com)'
+    becomes 'The.Den' and 'Chick-fil-A (via Grubhub)' becomes 'Chick.fil.A'."""
+    v = re.sub(r"\([^)]*\)", " ", vendor or "")
+    v = re.split(r"(?i)\s+(?:via|through|by)\s+|\s+[-|]\s+", v)[0]
+    v = re.sub(r"\b[\w-]+\.(?:[\w-]+\.)*(?:com|net|org|io|co|us|app|edu|gov)\b", " ", v, flags=re.I)
+    v = v.replace("&", "and").replace("'", "")
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", v) if w and w.lower() not in SUFFIXES - {"the"}]
+    words = [w for w in words if len(w) <= 16]
+    if not words:  # the vendor was only a domain, e.g. "Amazon.com" -> "Amazon"
+        m = re.search(r"([A-Za-z0-9-]+)\.(?:com|net|org|io|co|us|app|edu|gov)\b", vendor or "", re.I)
+        words = [m.group(1).capitalize() if m and m.group(1).islower() else (m.group(1) if m else "")]
+    return ".".join(w for w in words[:3] if w) or "Unknown"
 
 
 def amount_cents(total) -> str:
@@ -67,9 +76,13 @@ def main():
     vendor = data.get("vendor", "")
     vt = vendor_token(vendor)
     cents = amount_cents(data.get("total"))
-    dt = parse_date(data.get("transaction_date", ""))
+    dt = parse_date(data.get("transaction_date", "") or "")
     date_iso = dt.strftime("%Y-%m-%d") if dt else ""
-    mmddyy = dt.strftime("%m%d%y") if dt else "000000"
+    # The key keeps the real transaction date (or none). The file name falls back to the email date
+    # so names never read 000000; the report Notes say the date is the email date.
+    name_dt = dt or parse_date((data.get("email_date") or "")[:10])
+    mmddyy = name_dt.strftime("%m%d%y") if name_dt else "nodate"
+    name_date_source = "transaction" if dt else ("email" if name_dt else "none")
 
     refs_raw = data.get("ref") or ""
     refs = [r for r in re.split(r"[,;]\s*", refs_raw) if alnum(r)]
@@ -114,7 +127,8 @@ def main():
         "drive_queries": queries,
         "description": "\n".join(desc_lines),
         "file_name_stem": f"{vendor_display(vendor)} {mmddyy}",
-        "year": dt.strftime("%Y") if dt else "",
+        "year": (dt or name_dt).strftime("%Y") if (dt or name_dt) else "",
+        "name_date_source": name_date_source,
     }
     json.dump(out, sys.stdout, indent=2)
     print()

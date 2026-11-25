@@ -16,3 +16,9 @@ What the test changed in the plugin:
 - Scout batches went from 8 to 20 emails: each agent costs ~55-60k tokens just to start, so a 16-email test overstates per-email cost.
 
 At this size v1.0 is not cheaper in raw tokens - agent start-up dominates. The savings come with volume: the old design reads every email into one growing Sonnet conversation, so cost rises faster than the email count (and a month of backfill would not fit). In v1.0 the coordinator's context stays small, Haiku's per-email cost is about 5k tokens, and Opus runs once per month with only the hard cases. At the usual price ratio (Haiku : Sonnet : Opus ≈ 1 : 3 : 5), a 100-email month comes out at roughly half the cost of the old approach, with better accuracy. Re-measure on the first real backfill month.
+
+## 2026-11-24 - first real month and builder re-measure (v1.1)
+
+October 2026 backfill against a test archive: 15 candidates, 7 filed, 5 needing review. Helper-agent tokens were 1.2M (1.05M Haiku + 152k Opus), and PDF building was 724k of that (60%), because v1.0 started one builder agent per receipt at about 80-150k each.
+
+v1.1 re-measure, read-only, using 5 body-only receipts in one builder agent: **102k tokens in total, about 20k per receipt (was about 100k)**. All 5 were built and checked against the extraction. A Steam receipt with the amount only in the HTML got its amount and invoice number on a re-run once the re-read rule was tightened. At v1.1 rates the October month would need roughly 0.6M helper tokens instead of 1.2M.

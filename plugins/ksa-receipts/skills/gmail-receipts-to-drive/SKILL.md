@@ -20,7 +20,7 @@ This run is the **coordinator (Sonnet)**. It never reads email bodies or raw ema
 | Items `classify.py` marks `medium` | coordinator | one missing piece; needs a little judgment |
 | Duplicate search + fixed duplicate table | `dedupe-checker` agents (**Haiku**) + `dedupe_decide.py` | searches + rules |
 | Everything still unclear (`low`, `adjudicate`, extraction mismatches) | `receipt-adjudicator` (**Opus**), **one call per run** | the only real judgment calls |
-| Build each filing PDF and check it against the extraction | `receipt-builder` agents (**Haiku**) | scripts + a text check |
+| Build each filing PDF and check it against the extraction | `receipt-builder` agents (**Haiku**), 5 receipts each | scripts + a text check |
 | Upload, descriptions, report, final check | coordinator + `receipts-report` | needs the whole run's state |
 
 Quality rules that make this safe:
@@ -130,11 +130,11 @@ Apply `decide` answers. Collect `ask` answers for step 9 - those items are not b
 
 ### 7. Build (Haiku) and cross-check
 
-Decide every file name first (`receipt_key.py`'s `file_name_stem`; `[INVOICE ]Vendor.Name MMDDYY[ short-detail].pdf` - see below), then launch `receipt-builder` agents, up to 5 at a time (format and modes in `agents/receipt-builder.md`; `mode: "attachment"` when the scout found a `receipt_attachment`, else `mode: "record"` with the Route C fields from `references/drive-and-files.md`). Keep only each reply line.
+Decide every file name first (`receipt_key.py`'s `file_name_stem`; pass `email_date` too, so a receipt with no readable transaction date is named by its email date and the report Notes say `named by email date`; `[INVOICE ]Vendor.Name MMDDYY[ short-detail].pdf` - see below), then launch `receipt-builder` agents with **5 jobs each** (each agent has a large fixed start-up cost, so never one agent per receipt), up to 5 agents at a time (format and modes in `agents/receipt-builder.md`; `mode: "attachment"` when the scout found a `receipt_attachment`, else `mode: "record"`; always pass the `record` fields from `references/drive-and-files.md`, Route C, since they are also the fallback). Keep only each reply line, then read the batch's `results.json`.
 
 Cross-check each reply:
 - `ok: false` → retry once; then build the record PDF without the original and set `attachment_status` = "not captured - original attached in Gmail".
-- `problems` not empty, or `found` disagrees with the record on total, date or ref, or the record had `uncertain` key fields → do **not** upload yet. Send these as `extraction` items in a second (small) adjudicator call with `builder_found`. Apply its answer; if it asks, the item waits for the user.
+- `problems` not empty, `filled` not empty (the builder found a total/date/ref the scout missed), or `found` disagrees with the record on total, date or ref, or the record had `uncertain` key fields → do **not** upload yet. Send these as `extraction` items in a second (small) adjudicator call with `builder_found`. Apply its answer; if it asks, the item waits for the user.
 
 ### 8. Upload
 

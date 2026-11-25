@@ -31,6 +31,12 @@ import os
 import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# A home address on an ordinary purchase (Steam, Apple, Amazon shipped home) says nothing about
+# home-office use. It only counts for household bills: utilities, internet, lawn, home repairs.
+HOUSEHOLD = re.compile(r"(?i)\b(electric\w*|energy|power|water|gas|utilit\w+|trash|waste|sewer|refuse|"
+                       r"internet|fiber|broadband|cable|lawn|landscap\w*|pest|hvac|plumb\w*|roof\w*|"
+                       r"city of|municipal|coserv|atmos|oncor|txu|reliant|spectrum|xfinity|comcast|"
+                       r"frontier|hoa|homeowners)\b")
 DEFAULT_HINTS = os.path.join(HERE, "..", "data", "vendor_hints.json")
 
 LABELS = {
@@ -104,8 +110,13 @@ def classify(rec, st, hints):
     home = address_hit(addr_text, st.get("addresses", {}).get("home-office", []))
     if biz:
         votes.append(("Business", 2, f"address matches business ({biz})"))
-    if home:
-        votes.append(("Home office (indirect)", 2, f"address matches home office ({home})"))
+    household = bool(HOUSEHOLD.search(" ".join(str(rec.get(k) or "") for k in ("vendor", "items", "email_subject"))))
+    home_service = address_hit(str(rec.get("service_address") or ""), st.get("addresses", {}).get("home-office", []))
+    if home and (household or home_service):
+        votes.append(("Home office (indirect)", 2, f"household bill at home-office address ({home})"))
+    elif home:
+        sig.append("bill/ship-to is the home address (ordinary purchase - not counted as home office)")
+        home = None
     if re.search(r"(?i)ks\s*analytical|ksanalytical", addr_text):
         votes.append(("Business", 2, "bill/ship-to names KS Analytical"))
 

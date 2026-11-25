@@ -1,9 +1,16 @@
 {
   "name": "ksa-receipts",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Finds receipts and invoices in Gmail, files one copy of each transaction in the KSA Business Documents shared drive by year and expense category, and keeps a yearly Excel report. Haiku reads and builds, scripts decide, Sonnet coordinates, Opus breaks ties. Includes a checkpointed 6-year backfill and a nightly-run setup.",
   "author": {
     "name": "KS Analytical Systems"
   },
-  "keywords": ["receipts", "invoices", "gmail", "google drive", "expenses", "bookkeeping"]
+  "keywords": [
+    "receipts",
+    "invoices",
+    "gmail",
+    "google drive",
+    "expenses",
+    "bookkeeping"
+  ]
 }

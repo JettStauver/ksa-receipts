@@ -69,6 +69,12 @@ check("personal card -> Personal", (r["route"], r["category"]), ("file", "Person
 r = c({"vendor": "City Water", "service_address": "456 Oak Ln, Shelbyville TX", "kind": "invoice"})
 check("home address -> home office (medium: one signal)", (r["business_personal"], r["route"]),
       ("Home office (indirect)", "sonnet"))
+r = c({"vendor": "Steam", "bill_to": "456 Oak Ln, Shelbyville", "card_last4": "5678", "kind": "receipt"})
+check("home address on an ordinary purchase is not home office", r["category"], "Personal")
+r = c({"vendor": "Apple", "ship_to": "456 Oak Ln, Shelbyville", "kind": "receipt"})
+check("home ship-to alone never votes home office", r["business_personal"] != "Home office (indirect)", True)
+r = c({"vendor": "CoServ Electric", "bill_to": "456 Oak Ln, Shelbyville", "kind": "invoice"})
+check("household bill at home address -> home office", r["business_personal"], "Home office (indirect)")
 r = c({"vendor": "City Water", "service_address": "456 Oak Ln", "card_last4": "1234", "kind": "receipt"})
 check("home address on business card -> adjudicate", r["route"], "adjudicate")
 r = c({"vendor": "Hilton", "card_last4": "9999", "kind": "receipt"})
