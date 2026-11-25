@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Append transactions to the receipts report (.xlsx), keeping duplicate groups on adjacent rows.
 
-usage: report_append.py --rows new_rows.json --out report.xlsx [--report previous.xlsx] [--year YYYY]
+usage: report_append.py --rows new_rows.json --out report.xlsx [--report previous.xlsx]
+                        [--also other_version.xlsx ...] [--year YYYY]
        report_append.py --rows new_rows.json --list-years
 
 One report per year. --list-years prints the years the run's rows belong to; then run once per
@@ -18,6 +19,11 @@ Behavior
 - Re-running over an overlapping date window is safe: a row with the same found_by +
   gmail_message_id + group_id is skipped. A NEEDS REVIEW row is replaced when a resolved row
   arrives for the same found_by + gmail_message_id.
+- --also merges other report versions into --report first (two people published the same
+  version number). Rows already present are skipped, so nothing is doubled and nothing is lost.
+- A row with `supersedes_group` replaces the existing row with the same found_by +
+  gmail_message_id and that group_id. The duplicate sweep uses this to turn a copy that was filed
+  twice into a DUPLICATE row in the kept file's group.
 - Every group with 2+ rows (duplicates, invoice+receipt pairs) gets one shared fill color, a bold
   border on its first row, and duplicate rows in italic grey text. Single-row groups stay white.
 Prints a JSON summary.
@@ -95,12 +101,24 @@ def merge(existing, new):
     added, skipped, replaced = 0, 0, 0
     rows = list(existing)
     for n in new:
+        sup = str(n.get("supersedes_group") or "")
         n = {k: n.get(k) for k in KEYS}
+        if sup:
+            old = [i for i, r in enumerate(rows)
+                   if ident(r)[:2] == ident(n)[:2] and str(r.get("group_id") or "") == sup]
+            for i in reversed(old):
+                rows.pop(i)
+            replaced += bool(old)
         n["run_date"] = n.get("run_date") or datetime.now().strftime("%Y-%m-%d %H:%M")
         if not n.get("group_id"):
             n["group_id"] = "REVIEW-" + str(n.get("gmail_message_id") or len(rows))
         if any(ident(r) == ident(n) for r in rows):
             skipped += 1
+            continue
+        if str(n.get("status", "")).upper().startswith("NEEDS REVIEW") and any(
+                ident(r)[:2] == ident(n)[:2] and not str(r.get("status", "")).upper().startswith("NEEDS REVIEW")
+                for r in rows):
+            skipped += 1  # already resolved (e.g. merging an older version back in)
             continue
         # resolve an earlier NEEDS REVIEW row for the same email
         rev = [i for i, r in enumerate(rows)
@@ -218,7 +236,7 @@ def write(rows, out):
         "Group: transactions that are the same purchase share a Group id and sit on adjacent rows.",
         "Colored rows with a heavy top border = a group with more than one copy found (duplicates, or an invoice plus its receipt).",
         "Italic grey rows = DUPLICATE - not saved. The 'Duplicate of' column names the file that was kept.",
-        "Status values: SAVED, SAVED - INVOICE, DUPLICATE - not saved, NEEDS REVIEW, PERSONAL - SAVED.",
+        "Status values: SAVED, SAVED - INVOICE, DUPLICATE - not saved, DUPLICATE - extra copy set aside (filed twice by two mailboxes; the extra file is renamed DUPLICATE ... and can be deleted), NEEDS REVIEW, PERSONAL - SAVED.",
         "Total is shown once per transaction, so the column can be summed: duplicate rows say '(duplicate - not counted)', "
         "and an invoice whose receipt was also found says '(paid - counted on receipt row)'.",
         "INVOICE in a file name means no proof of payment was found when it was filed.",
@@ -259,6 +277,8 @@ def year_of_rows(rows):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--report", help="previous report .xlsx for this year (omit on first run of the year)")
+    ap.add_argument("--also", action="append", default=[],
+                    help="another report version to merge in (same version number published twice)")
     ap.add_argument("--rows", required=True)
     ap.add_argument("--out")
     ap.add_argument("--year", help="keep only rows belonging to this year")
@@ -281,10 +301,16 @@ def main():
         new = [r for r in new if years[id(r)] == str(a.year)]
     global REPORT_YEAR
     REPORT_YEAR = a.year
-    rows, added, skipped, replaced = merge(read_existing(a.report), new)
+    base = read_existing(a.report)
+    merged_in = 0
+    for extra in a.also:
+        base, n_added, _, _ = merge(base, read_existing(extra))
+        merged_in += n_added
+    rows, added, skipped, replaced = merge(base, new)
     groups = write(rows, a.out)
     json.dump({"out": a.out, "total_rows": len(rows), "added": added,
                "skipped_already_present": skipped, "review_rows_resolved": replaced,
+               "merged_from_other_versions": merged_in,
                "multi_row_groups": groups}, sys.stdout, indent=2)
     print()
 

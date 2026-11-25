@@ -36,11 +36,11 @@ Quality rules that make this safe:
 |---|---|
 | Shared drive | KSA Business Documents (drive id `0AFwI_QSQxLp0Uk9PVA`) |
 | Destination root | `Receipt archive` at the shared drive root (id `1NvMJZTXurJaImGjo8ORBSWxH782nIVaX`) |
-| Settings | `Receipt archive/_settings/` (company-wide) + `_settings/<email>/` (each person's cards, home-office address, rules) - see `references/dedupe.md` section 5 |
+| Settings | `Receipt archive/_settings/` (company-wide) + `_settings/<email>/` (each person's cards, home-office address, rules) - see `references/dedupe.md` section 6 |
 | State and run log | `Receipt archive/_state/<email>/` per person; shared run lock in `_state/` - see `references/runs-and-state.md` |
 | Layout | `Receipt archive/<YYYY>/<Category>/` plus `<YYYY>/Personal/` and `<YYYY>/Home Office - Indirect/` |
 | First-run search window | last 30 days |
-| Report (one per year) | `Receipt archive/<YYYY>/Receipts Report <YYYY>.xlsx` (built by the `receipts-report` skill) |
+| Report (one per year) | `Receipt archive/<YYYY>/Receipts Report <YYYY> v<NNN> (<who>).xlsx` - highest version is current (built by the `receipts-report` skill) |
 | Hotel nights (one per year) | `Receipt archive/<YYYY>/Hotel Nights <YYYY>.xlsx` |
 
 Company- and person-specific facts (addresses, cards) live only in `_settings`, never in this plugin, because the plugin is published publicly. Access to the shared drive is what gates the data.
@@ -66,14 +66,14 @@ Create a task list: set up (state + lock) → find → scout → classify → de
 1. Identify the running user (their email). Record it as `found_by`. Decide the mode: **nightly/normal** (default), **range** (the user named dates) or **backfill** (use the `receipts-backfill` skill, which calls this workflow once per month). Read `references/runs-and-state.md`.
 2. **Make sure this person is set up - add whatever is missing.** Open `Receipt archive` by id, then check and create (search first, never twins; folders and settings are empty Google Docs/folders created with `create_file`):
    - `_settings/` and `_settings/<found_by>/` (their own settings folder).
-   - `_state/`, `_state/<found_by>/` (their own state and run log), and the shared `LOCK free` file in `_state/` if no `LOCK ...` file exists.
+   - `_state/`, `_state/<found_by>/` (their own state and run log), (the run lock needs no set-up file: it is made of claim and release files, `references/runs-and-state.md`).
    Then list `_settings` (company), `_settings/<found_by>/` (theirs) and the other people's subfolders (titles only), save each listing, and run
    `python3 -I <scripts>/settings.py --shared shared.json --mine mine.json --others <other listings...> --out settings.json`.
    For each entry in `missing`:
    - **User present:** ask for it in one short batch with AskUserQuestion before the run starts ("What's your home-office address? Bills sent there are filed under Home Office - Indirect." - offer "I don't have one" → `ADDRESS home-office none`; "Which cards do you use for KSA purchases? Last 4 digits only."). Create each answer as a setting in their own folder (the business address goes in the company `_settings/`). Never ask for or store more than the last 4 digits of a card.
    - **Unattended:** create nothing that needs a value; carry on (classification falls back to asking via `NEEDS REVIEW`) and list what is missing at the top of the final message.
    Also mention any `unparsed` titles or `conflicts`. Check the Gmail answer labels (`Receipts/Business`, `Receipts/Personal`, `Receipts/Home Office`, `Receipts/Skip`) with `list_labels`; create any that are missing (creating labels is fine; this skill never applies labels to emails).
-3. List `_state` and `_state/<found_by>/` (titles only) and run `python3 -I <scripts>/state.py --titles <both listings> --email <found_by> status`. Take the run lock as described in `runs-and-state.md`.
+3. List `_state` and `_state/<found_by>/` (titles only) and run `python3 -I <scripts>/state.py --titles <both listings> --email <found_by> status`. Claim the run lock as described in `runs-and-state.md` (create a claim, confirm it is the earliest; never rename a lock file).
 4. Search window: nightly/normal → `nightly_from` from the status (or the last 30 days if there is none); range → the user's dates; backfill → the month given by `receipts-backfill`. Windows longer than 31 days are processed as monthly chunks, each finished (report published, state written) before the next starts.
 5. Download the current report(s) for the years in the window and export their rows to `report_rows.json` (`openpyxl`, one object per row with the report's snake_case keys) for the dedupe step. Start `<scratchpad>/run/<chunk>/progress.json` and update it after each phase.
 
@@ -116,7 +116,7 @@ For every record that will be filed (or might be), find or create the target yea
 - `new` → save.
 - `new_near_match` → save; put the reason in the report Notes.
 - `duplicate` → do not save; report row `DUPLICATE - not saved` with the existing file's `group_id` and `duplicate_of`.
-- `receipt_for_invoice` → save the receipt; rename the invoice ` (paid - see receipt)` and add `PAID_BY_GROUP` to its description; same group.
+- `receipt_for_invoice` → save the receipt in the invoice's group and add `PAYS_GROUP: <group_id>` to the receipt's own description. Only if `rename_invoice` is true (this mailbox filed the invoice) also rename the invoice ` (paid - see receipt)` and add `PAID_BY_GROUP` to its description. A teammate's invoice is left exactly as it is: the connector refuses to edit it, and the report already shows the pair as one group.
 - `already_saved_self` → this mailbox already filed this email in a run that stopped early: no upload; report row `SAVED` (or the matching status) with the existing file's name, link and group.
 - `adjudicate` → to the adjudicator.
 
@@ -138,7 +138,7 @@ Cross-check each reply:
 
 ### 8. Upload
 
-Upload the staged files folder by folder (`references/drive-and-files.md`, "Upload through Drive in Chrome"), get the new file ids, compare sizes, and write each file's description (the `receipt_key.py` block). Hotel stays paid with business funds: add them to the Hotel Nights workbook (see the `receipts-report` skill) using the scout's `hotel` fields; skip stays already listed.
+Upload the staged files folder by folder (`references/drive-and-files.md`, "Upload through Drive in Chrome"), get the new file ids, compare sizes, and write each file's description (the `receipt_key.py` block). Then run the duplicate sweep (`references/dedupe.md`, "Same receipt in two mailboxes") before the report. Hotel stays paid with business funds: add them to the Hotel Nights workbook (see the `receipts-report` skill) using the scout's `hotel` fields; skip stays already listed.
 
 **File name:** `[INVOICE |REFUND ]Vendor.Name MMDDYY[ short-detail].pdf` - refunds go in the same category folder as the purchase they reverse, with the `REFUND ` prefix and a note naming the original file; vendor words joined with dots (e.g. `DFW.Parking 092426.pdf`, `USPS 102726.pdf`), date = transaction date. Add a short detail (order number tail, route, item) only when needed to keep names distinct. Never put card numbers in names.
 
@@ -148,15 +148,16 @@ Follow `references/review-workflow.md`. If the user is present, ask the adjudica
 
 ### 10. Report and finish
 
-1. Pass every processed transaction - saved, duplicate, needs review, personal, skipped-by-label - to the `receipts-report` skill.
+1. Pass every processed transaction - saved, duplicate, needs review, personal, skipped-by-label - plus the sweep's `report_row`s to the `receipts-report` skill.
 2. Check the work: `get_file_metadata` on two or three saved files (folder, name, description); confirm each year's report row count grew by the number of new rows.
-3. Write state and release the lock: nightly/normal → create the title from `state.py --email <found_by> title nightly --through <window end> --saved N --dup N --review N`; backfill → `receipts-backfill` writes the month's `done` title. Then rename the lock back to `LOCK free` (also when the run failed part-way).
-4. Final message: counts (saved business / personal / home office / invoices / duplicates skipped / needs review), how many items needed Sonnet and Opus, open questions, and a link to `Receipt archive`. Do not list every file.
+3. Write state and release the lock: nightly/normal → create the title from `state.py --email <found_by> title nightly --through <window end> --saved N --dup N --review N`; backfill → `receipts-backfill` writes the month's `done` title. Then release the lock by creating its `LOCK release ...` file (also when the run failed part-way).
+4. Final message: counts (saved business / personal / home office / invoices / duplicates skipped / extra copies set aside by the sweep / needs review), any teammate extras the sweep saw (one line), how many items needed Sonnet and Opus, open questions, and a link to `Receipt archive`. Do not list every file.
 
 ## Never
 
 - Open, search, read or write `@KSA Scanned Documents`.
 - Save a second copy of a transaction, even if the second copy looks nicer.
+- Rename, move, re-describe or trash a file a teammate filed or created (the connector refuses it anyway). Change only your own files; everything shared works by creating new files.
 - File anything whose amount, date or business/personal status rests only on a guess.
 - Put full card numbers, bank account numbers or passwords in files, names, descriptions, settings or the report.
 - Trash or delete any Drive file. Renames and moves within `Receipt archive` are allowed.

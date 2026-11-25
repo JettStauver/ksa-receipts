@@ -42,7 +42,7 @@ Note: a file uploaded in the last few minutes may not be indexed yet. Before sav
 | Same vendor + amount + date + card, and items/time agree or are absent from one side | Same transaction |
 | Same vendor + amount, but different date, ref, card, items, ship-to, or time of day | Different transaction - save; note "similar to <file name>" |
 | Same vendor + amount + date, no ref, nothing else to compare | **Ask the user** |
-| Hit is an INVOICE file and the new one is the receipt for it | Save the receipt; rename invoice with ` (paid - see receipt)`; same group |
+| Hit is an INVOICE file and the new one is the receipt for it | Save the receipt in the invoice's group (`PAYS_GROUP` in its description); rename the invoice ` (paid - see receipt)` only when this mailbox filed it (`rename_invoice`) |
 | Hit is a receipt and the new one is the invoice for it | Do not save; duplicate row in the same group |
 | Recurring charges (monthly subscriptions, tolls) | Different transaction when the date or billing period differs, even with identical amounts |
 
@@ -53,7 +53,20 @@ When in doubt between "same" and "different", ask; never silently drop a possibl
 - New file: store the description block from `receipt_key.py` on the file. Its `group_id` is now the group for this transaction.
 - Duplicate: do not save a file. Report row gets `Status = DUPLICATE - not saved`, the **existing file's** `group_id`, and `Duplicate of = <existing file name>`, plus where this copy was found (mailbox, sender, email date).
 
-## 5. Settings (cards, addresses, vendors, rules)
+## 5. Same receipt in two mailboxes
+
+The usual case: one email goes to two people (CC, a forward to ksa@). Both copies have the **same RFC822 Message-ID**, so whoever runs second finds the first person's file through `KSAMSG...` and logs a `DUPLICATE - not saved` row. The run lock makes the runs take turns, so the second run normally sees the first one's files.
+
+A second copy still slips through when Drive's search index has not caught up with the first upload (runs close together, or a resumed run). The **sweep** catches it after the fact:
+
+1. After the upload step, collect the files to sweep: every file this chunk saved, plus your own `SAVED` rows from the last 3 days in the current report (their Drive links). Read each one's description (`get_file_metadata`), and for each `KSAMSG...` and `KSAREF...` token in its `TOKENS` line run `fullText contains '<token>'`, keeping hits inside `Receipt archive`. Hand the batch to a `dedupe-checker` agent if it is more than ~10 files.
+2. Save all hits (with `description` and `createdTime`) to `hits.json` and run `python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/dup_sweep.py --hits hits.json --email <found_by>`.
+3. The **first-created copy is kept**. For each entry in `mine` (an extra copy *you* filed): rename it to `new_title` (`DUPLICATE of <keeper> - <name>`) with `update_file`, and pass its `report_row` to the report - it turns your `SAVED` row into a `DUPLICATE - extra copy set aside` row in the keeper's group. Never trash it; the summary asks a person to delete it in Drive.
+4. Entries in `others` are extras a teammate filed. Do nothing to them (the connector would refuse it anyway) - their own next sweep sets them aside. Mention them in one line of the final summary.
+
+An invoice and its receipt share an order number on purpose; the sweep does not treat them as duplicates.
+
+## 6. Settings (cards, addresses, vendors, rules)
 
 Settings live as tiny files whose **titles** hold the data, so no file is ever rewritten. Two layers:
 

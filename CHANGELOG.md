@@ -1,5 +1,12 @@
 # Changelog
 
+## ksa-receipts 1.2.0
+The Drive connector can only rename or move files that the same person created through it, so any step that edited a teammate's file failed. Nothing shared is edited in place any more:
+- **Run lock is create-only.** Each run creates `LOCK claim <email> <time> (<kind>)` and later `LOCK release <email> <time>`; the earliest open claim holds the lock (Drive's `createdTime` breaks same-second races) and claims go stale after 3 hours. No one renames a lock file. Old `LOCK free` / `LOCK held by ...` files are still read.
+- **Yearly reports are numbered versions:** `Receipts Report <YYYY> v<NNN> (<who>).xlsx` and `Hotel Nights <YYYY> v<NNN> (<who>).xlsx`; the highest number is current. Each person tidies only their own older versions (into `_Report history`, or renamed `OLD - ...`). New `report_versions.py`; `report_append.py` / `hotel_nights.py --also` merge two versions published with the same number, so no rows are lost.
+- **Duplicate sweep for the same receipt filed from two mailboxes** (e.g. George and Ken both get it and both runs file it before Drive's search index catches up). New `dup_sweep.py`: after upload, it re-searches each new file's Message-ID and ref tokens; the first-created copy is kept and the person who filed the later copy renames theirs `DUPLICATE of <keeper> - ...` and their report row becomes `DUPLICATE - extra copy set aside` in the keeper's group (`supersedes_group`). Never trashed; teammates' extras are left for them.
+- **A teammate's invoice is no longer renamed** when its receipt arrives (`rename_invoice` in `dedupe_decide.py`); the receipt carries `PAYS_GROUP` and the report shows the pair as one group.
+
 ## ksa-receipts 1.1.0
 From the first real backfill month (October 2026, test archive) and a re-measure:
 - **Builder batches 5 receipts per agent** (was 1). Re-measured: about 20k tokens per receipt, down from about 100k; PDF building had been 60% of a month's cost.

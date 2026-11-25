@@ -15,13 +15,13 @@ Folder ids are in `../gmail-receipts-to-drive/SKILL.md` ("Fixed settings").
 1. **Connectors.** Gmail and Google Drive must be connected. Load their tools with ToolSearch. If either is missing, tell the person to connect it from the connectors menu (search the registry and suggest it), then stop until it is.
 2. **Who they are.** Get their email from the Gmail connector (`found_by`). The archive is shared, so this is how their runs are told apart.
 3. **Shared-drive access.** Open `Receipt archive` by id and list one year folder. If it fails, they need edit access to the **KSA Business Documents** shared drive - tell them to ask whoever manages it (Ken). Stop until they have it.
-4. **Their folders, settings, state and labels.** Do step 1.2 of `gmail-receipts-to-drive` exactly (it creates `_settings/<email>/`, `_state/<email>/`, the lock file and the Gmail answer labels if missing, and asks for their home-office address and the last 4 of the cards they use). Explain the labels in one line each: they apply one to an email to answer a question the finder left in the report.
+4. **Their folders, settings, state and labels.** Do step 1.2 of `gmail-receipts-to-drive` exactly (it creates `_settings/<email>/`, `_state/<email>/` and the Gmail answer labels if missing, and asks for their home-office address and the last 4 of the cards they use). Explain the labels in one line each: they apply one to an email to answer a question the finder left in the report.
 5. **History.** Run `state.py status` for them and say whether they have run before and how far any backfill got.
 6. **Chrome (optional).** With Claude in Chrome connected, attachments upload faster and exactly as emailed. Without it, uploads go through the Drive connector - fine for nightly volumes.
 
 ## Nightly run
 
-Offer to set it up. Use the session's scheduling tools (load them with ToolSearch; call it a "scheduled task"). Pick a time between 1 and 5 am in the person's time zone, staggered from teammates who already have one (check the other people's `_state/<email>/` `RUN ...` log times and leave at least 40 minutes between people, since they share the report lock). Ask only if the person cares about the time.
+Offer to set it up. Use the session's scheduling tools (load them with ToolSearch; call it a "scheduled task"). Pick a time between 1 and 5 am in the person's time zone, staggered from teammates who already have one (check the other people's `_state/<email>/` `RUN ...` log times and leave at least 40 minutes between people, since they share the run lock). Ask only if the person cares about the time.
 
 Scheduled task prompt (adjust the email):
 

@@ -18,6 +18,9 @@ import classify  # noqa: E402
 import dedupe_decide  # noqa: E402
 import settings  # noqa: E402
 import state  # noqa: E402
+import dup_sweep  # noqa: E402
+import report_versions  # noqa: E402
+import report_append  # noqa: E402
 
 FAIL = []
 
@@ -135,7 +138,81 @@ check("next backfill redoes interrupted", state.next_backfill(s, 6, None)["month
 s2 = state.status(titles[:3], "a@x.com")
 check("next backfill goes newest-first", state.next_backfill(s2, 6, None)["month"], "2026-09")
 check("other user unaffected", state.status(titles, "b@x.com")["nightly_from"], None)
-check("lock free", s["lock"]["state"], "free")
+check("legacy LOCK free reads as free", s["lock"]["state"], "free")
+
+# create-only run lock
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+_now = _dt.now(_tz.utc)
+_iso = lambda m: (_now - _td(minutes=m)).strftime("%Y-%m-%dT%H%M%SZ")  # noqa: E731
+L = lambda e, who: state.lock_status(e, who)  # noqa: E731
+check("lock missing", L([], "a@x.com")["state"], "missing")
+c_a, c_b = f"LOCK claim a@x.com {_iso(5)} (nightly)", f"LOCK claim b@x.com {_iso(4)} (backfill)"
+r = L([(c_b, None), (c_a, None)], "b@x.com")
+check("earliest claim holds the lock", (r["state"], r["by"], r["mine"]), ("held", "a@x.com", False))
+check("later claimant is waiting", r["waiting"], [c_b])
+r = L([(c_a, None), (c_b, None), (f"LOCK release a@x.com {_iso(5)}", None)], "b@x.com")
+check("after release the next claim holds it", (r["by"], r["mine"]), ("b@x.com", True))
+r = L([(f"LOCK claim a@x.com {_iso(200)} (nightly)", None)], "b@x.com")
+check("stale claim (>3h) is ignored", r["state"], "free")
+r = L([(f"LOCK claim a@x.com {_iso(200)} (nightly)", None), (c_a, None), (f"LOCK release a@x.com {_iso(5)}", None)], "a@x.com")
+check("own stale/released files are listed to tidy", len(r["tidy"]), 3)
+same = _iso(1)
+r = L([(f"LOCK claim b@x.com {same} (n)", "2026-11-25T10:00:01.500Z"),
+       (f"LOCK claim a@x.com {same} (n)", "2026-11-25T10:00:02.000Z")], "a@x.com")
+check("Drive createdTime breaks a same-second race", r["by"], "b@x.com")
+r = L([(f"LOCK held by a@x.com since {_iso(30)} (nightly)", None)], "b@x.com")
+check("old-style held lock still blocks", (r["state"], r["by"]), ("held", "a@x.com"))
+check("release title", subprocess.run([sys.executable, "-I", os.path.join(S, "state.py"), "--email", "A@x.com",
+      "title", "lock-release", "--claim", "2026-11-25T101500Z"], capture_output=True, text=True).stdout.strip(),
+      "LOCK release a@x.com 2026-11-25T101500Z")
+
+# report versions
+yf = [{"id": "1", "title": "Receipts Report 2026.xlsx", "createdTime": "2026-01-01T00:00:00Z"},
+      {"id": "2", "title": "Receipts Report 2026 v001 (george).xlsx", "createdTime": "2026-11-01T00:00:00Z"},
+      {"id": "3", "title": "Receipts Report 2026 v002 (ken).xlsx", "createdTime": "2026-11-02T00:00:00Z"},
+      {"id": "4", "title": "Hotel Nights 2026 v004 (ken).xlsx", "createdTime": "2026-11-02T00:00:00Z"},
+      {"id": "5", "title": "OLD - Receipts Report 2026 v000 (ken).xlsx", "createdTime": "2026-11-02T00:00:00Z"}]
+v = report_versions.plan(yf, [], "george@x.com", "2026", "report")
+check("highest version is current", v["current"]["id"], "3")
+check("next title", v["next_title"], "Receipts Report 2026 v003 (george).xlsx")
+check("only my superseded versions to tidy", [t["id"] for t in v["tidy_mine"]], ["2"])
+check("teammate's superseded left alone", sorted(t["id"] for t in v["others_superseded"]), ["1"])
+v = report_versions.plan(yf + [{"id": "6", "title": "Receipts Report 2026 v002 (george).xlsx",
+                                "createdTime": "2026-11-02T00:05:00Z"}], [], "ken@x.com", "2026", "report")
+check("same version twice -> conflict to merge", (v["current"]["id"], [c["id"] for c in v["conflict"]]), ("6", ["3"]))
+check("nights kind kept separate", report_versions.plan(yf, [], "ken@x.com", "2026", "nights")["next_title"],
+      "Hotel Nights 2026 v005 (ken).xlsx")
+check("history versions count toward the number",
+      report_versions.plan([], [{"title": "Receipts Report 2026 v007 (ken).xlsx"}], "ken@x.com", "2026", "report")["next_version"], 8)
+
+# duplicate sweep: same email filed by two mailboxes
+def kfile(fid, created, who, gid, tokens, doc="receipt", gmail="g"):
+    return {"id": fid, "title": f"Vendor 112526 {fid}.pdf", "createdTime": created,
+            "description": f"KSA-RECEIPT v1\nGROUP: {gid}\nDOC: {doc}\nFOUND_BY: {who}\nGMAIL_ID: {gmail}\nTOKENS: {tokens}"}
+hits = [kfile("K", "2026-11-25T08:00:00Z", "ken@x.com", "G1", "KSAMSGabc KSAVAX1", gmail="gk"),
+        kfile("G", "2026-11-25T08:01:00Z", "george@x.com", "G2", "KSAMSGabc KSAVAX1", gmail="gg"),
+        kfile("I", "2026-11-20T08:00:00Z", "ken@x.com", "G3", "KSAREF99 KSAVAX1", doc="invoice"),
+        kfile("R", "2026-11-24T08:00:00Z", "george@x.com", "G3", "KSAREF99 KSAVAX1")]
+sw = dup_sweep.sweep(hits, "george@x.com")
+check("sweep: later copy is mine to set aside", [m["file_id"] for m in sw["mine"]], ["G"])
+check("sweep: report row moves to keeper group", (sw["mine"][0]["report_row"]["group_id"],
+      sw["mine"][0]["report_row"]["supersedes_group"]), ("G1", "G2"))
+check("sweep: invoice + receipt with same ref is not a duplicate", sw["clusters"], 1)
+check("sweep: ken sees george's extra as someone else's", [o["file_id"] for o in dup_sweep.sweep(hits, "ken@x.com")["others"]], ["G"])
+
+# report: supersedes_group turns a SAVED row into a duplicate row of the keeper
+ex = [{"group_id": "G1", "status": "SAVED", "vendor": "V", "total": 5, "found_by": "ken@x.com", "gmail_message_id": "gk"},
+      {"group_id": "G2", "status": "SAVED", "vendor": "V", "total": 5, "found_by": "george@x.com", "gmail_message_id": "gg"}]
+rows, _, _, rep = report_append.merge(ex, [sw["mine"][0]["report_row"]])
+check("supersedes_group replaces the SAVED row", ([r["group_id"] for r in rows], rep), (["G1", "G1"], 1))
+rows, added, _, _ = report_append.merge([dict(ex[0], status="SAVED")],
+                                        [dict(ex[0], status="NEEDS REVIEW", group_id="REVIEW-gk")])
+check("resolved review row is not merged back in", added, 0)
+
+# dedupe: never ask to rename a teammate's invoice
+inv_t = dict(base, doc_type="invoice", gmail_message_id="m6", found_by="b@x.com")
+res = D(dict(base, gmail_message_id="m7", found_by="a@x.com"), [hit(inv_t)])
+check("teammate's invoice is not renamed", (res["decision"], res["rename_invoice"]), ("receipt_for_invoice", False))
 
 print(f"\n{'ALL PASSED' if not FAIL else str(len(FAIL)) + ' FAILED'}")
 sys.exit(1 if FAIL else 0)

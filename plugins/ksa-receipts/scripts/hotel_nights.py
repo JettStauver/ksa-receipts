@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Append business hotel stays to the Hotel Nights workbook and keep a running total.
 
-usage: hotel_nights.py --rows stays.json --out nights.xlsx [--report previous.xlsx] [--year YYYY]
+usage: hotel_nights.py --rows stays.json --out nights.xlsx [--report previous.xlsx]
+                       [--also other_version.xlsx ...] [--year YYYY]
        hotel_nights.py --rows stays.json --list-years
 
 One workbook per year. With --year, only nights slept in that year are counted. A stay that runs
@@ -12,6 +13,7 @@ stays.json: list of {check_in, check_out, city, state, hotel, nights, total, car
                      confirmation, trip, file_name, drive_url, found_by}
 Only stays paid with business funds belong here. A stay whose confirmation (or hotel + check_in)
 is already in the workbook is skipped, so overlapping runs never double-count nights.
+--also merges another version of the workbook (same version number published twice) first.
 Sheet "Stays" lists each stay sorted by check-in; sheet "Totals" sums nights by year and month.
 """
 import argparse
@@ -96,6 +98,7 @@ def for_year(r, year):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--report")
+    ap.add_argument("--also", action="append", default=[])
     ap.add_argument("--rows", required=True)
     ap.add_argument("--out")
     ap.add_argument("--year")
@@ -111,6 +114,11 @@ def main():
         ap.error("--out is required")
     rows = read(a.report)
     seen = {ident(r) for r in rows}
+    for extra in a.also:
+        for r in read(extra):
+            if ident(r) not in seen:
+                rows.append(r)
+                seen.add(ident(r))
     added = 0
     for n in incoming:
         if ident(n) in seen:

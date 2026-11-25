@@ -31,7 +31,7 @@ This is the fixed list of categories for every year. Use the names exactly (spel
 ## Rules
 
 - Packing slips with prices are receipts or invoices - categorize by what was bought. Price-less slips go to Received Packing Slips only if one has a corresponding order; otherwise skip them (they are not receipts).
-- Personal purchase paid with a **business** card or account: ask the user whether it belongs in `Personal` or `Owners Draw` the first time a given situation comes up, and record the answer as a `RULE` setting (see `dedupe.md` section 5).
+- Personal purchase paid with a **business** card or account: ask the user whether it belongs in `Personal` or `Owners Draw` the first time a given situation comes up, and record the answer as a `RULE` setting (see `dedupe.md` section 6).
 - Regular monthly phone and data service plan payments (Verizon, AT&T, etc. - autopay or bill-pay confirmations): always Business, Software & Internet & IT Services. One-off phone-store purchases (devices, cases, accessories, in-store payments that are not the monthly plan) are not covered by this rule - ask, and lean Personal.
 - Travel meals: Meals & Entertainment, not Travel Expenses.
 - Fuel: Travel Expenses when on a trip; Automobile & Licensing for local business-vehicle fuel. Ask if unclear.

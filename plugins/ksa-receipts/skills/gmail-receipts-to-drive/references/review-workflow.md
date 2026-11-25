@@ -21,7 +21,7 @@ A label always overrides Claude's own classification and any rule. Claude never 
 2. **Classify the rest** using `_settings` rules, cards and `categories.md`.
 3. **Collect what is still uncertain** - business vs personal vs home office, category, receipt vs invoice, possible duplicate, unreadable key field.
 4. **If the user is in the chat:** ask the `receipt-adjudicator`'s `ask` items at the end of the run in one batch with AskUserQuestion (up to 4 questions per call; group similar items). For each item offer the destinations that make sense, and add a second question or option: "Apply to future emails like this?"
-   - Yes → create a `RULE` (or `CARD` / `VENDOR`) setting - in the person's own `_settings/<email>/` unless they say it is for everyone (`dedupe.md` section 5) - worded narrowly enough to be safe (vendor + kind of charge, e.g. "Verizon in-store purchases are personal"; never a whole vendor when the user's answer was about one kind of charge).
+   - Yes → create a `RULE` (or `CARD` / `VENDOR`) setting - in the person's own `_settings/<email>/` unless they say it is for everyone (`dedupe.md` section 6) - worded narrowly enough to be safe (vendor + kind of charge, e.g. "Verizon in-store purchases are personal"; never a whole vendor when the user's answer was about one kind of charge).
    - No → a one-time decision; file it and move on.
 5. **If the user is not present (scheduled run):** file nothing uncertain. Leave the row as `NEEDS REVIEW` with a plain question in Notes and the Gmail link, and tell the user in the final message to label those emails or answer next time.
 

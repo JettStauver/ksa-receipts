@@ -73,4 +73,6 @@ Always `search_files` for `title = '<name>' and parentId = '<parent>' and mimeTy
 
 ## Renaming an invoice when its receipt arrives
 
-`update_file` with the new `title` (append ` (paid - see receipt)` before the extension) and add `PAID_BY_GROUP: <group_id>` to its description. Same link, nothing deleted.
+Only when this mailbox filed the invoice (`dedupe_decide.py` says `rename_invoice: true`): `update_file` with the new `title` (append ` (paid - see receipt)` before the extension) and add `PAID_BY_GROUP: <group_id>` to its description. Same link, nothing deleted.
+
+A teammate's invoice is never renamed - the connector refuses to edit a file someone else created. The receipt goes in the invoice's group with `PAYS_GROUP: <group_id>` in its own description, and the report shows the invoice row as `(paid - counted on receipt row)`.

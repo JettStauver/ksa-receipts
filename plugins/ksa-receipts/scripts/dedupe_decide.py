@@ -18,6 +18,8 @@ Prints one JSON object:
             after upload but before the report): log it as SAVED with the existing file, do not
             upload again and do not call it a duplicate.
   match:    {file_id, name, group_id} of the existing copy (when there is one)
+  rename_invoice / invoice_owner (receipt_for_invoice only): rename the invoice only when this
+            mailbox filed it - the connector cannot rename a teammate's file.
   reason:   plain words, for the report Notes
   evidence: compact field-by-field comparison (what an adjudicator needs, nothing more)
 
@@ -132,7 +134,14 @@ def decide(job):
                        "reason": "this email was already filed from this mailbox (resumed run)"}
             elif ev["ref"] == "same" or ev["message_id"] == "same":
                 if ev["their_doc"] == "invoice" and ev["my_doc"] == "receipt":
-                    res = {"decision": "receipt_for_invoice", "reason": "receipt for an invoice already saved"}
+                    owner = (d.get("FOUND_BY") or "").lower()
+                    mine = bool(owner) and owner == (rec.get("found_by") or "").lower()
+                    res = {"decision": "receipt_for_invoice", "reason": "receipt for an invoice already saved",
+                           "invoice_owner": owner or None,
+                           # The connector can only rename files this person created; a teammate's
+                           # invoice is left as is and the pairing lives in the report and the
+                           # receipt's own description (PAYS_GROUP).
+                           "rename_invoice": mine}
                 else:
                     res = {"decision": "duplicate",
                            "reason": "same " + ("order/ref number" if ev["ref"] == "same" else "email (Message-ID)")}

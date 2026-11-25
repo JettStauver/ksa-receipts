@@ -4,7 +4,9 @@ A usage limit, a closed laptop or a crashed session can stop a run at any moment
 
 ## Where state lives
 
-`Receipt archive/_state/` in the shared drive, with **one subfolder per person** (`_state/<their email>/`, created on their first run) for their own state and run log, and the shared run lock at the top of `_state/`. Like `_settings`, the data is in file **titles** (empty Google Docs created with `create_file`, mime `application/vnd.google-apps.document`), because the Drive connector cannot rewrite a file's contents. Files are only ever created or renamed - never trashed. `scripts/state.py` reads the titles and prints the exact title to create next; never hand-write a state title.
+`Receipt archive/_state/` in the shared drive, with **one subfolder per person** (`_state/<their email>/`, created on their first run) for their own state and run log, and the shared run lock at the top of `_state/`. Like `_settings`, the data is in file **titles** (empty Google Docs created with `create_file`, mime `application/vnd.google-apps.document`), because the Drive connector cannot rewrite a file's contents. Files are only ever created (and a person's own files moved or renamed) - never trashed.
+
+**Never edit a teammate's file.** The Drive connector can only rename or move files that the same person created through it; it refuses anyone else's, even in the shared drive. So everything shared - the lock, the yearly reports - works by each person *creating* new files, and readers work out the current state from all of them. `scripts/state.py` reads the titles and prints the exact title to create next; never hand-write a state title.
 
 Per person, in `_state/<email>/`:
 - `STATE <email> nightly through <date> | ...` - the newest date covered by a normal/nightly run.
@@ -13,7 +15,7 @@ Per person, in `_state/<email>/`:
 
 - `RUN <YYYY-MM-DD HHMM> <mode> <window> - saved N dup N review N` - a run log: one file per chunk, created at its end, with a short plain-text body (counts, items needing review with Gmail links, problems). It is the person's history of what ran when.
 
-Shared by everyone, in `_state/` itself: one file titled `LOCK free` or `LOCK held by <email> since <time> (<kind>)`.
+Shared by everyone, in `_state/` itself: lock claims `LOCK claim <email> <time> (<kind>)` and releases `LOCK release <email> <time>` (see below). Old `LOCK free` / `LOCK held by ...` files from plugin 1.1 are still understood and can be left alone.
 
 Within one chat session, also keep `<scratchpad>/run/<chunk>/progress.json` with the phases finished (`scouted`, `classified`, `deduped`, `adjudicated`, `built`, `uploaded`, `reported`) and the paths of their outputs. If the user continues the same chat after a limit, resume from the first unfinished phase. A new session (or a scheduled run) does not have the scratchpad - it simply redoes the interrupted chunk.
 
@@ -25,14 +27,16 @@ Within one chat session, also keep `<scratchpad>/run/<chunk>/progress.json` with
 
 ## The run lock
 
-The yearly report is replaced by uploading a new version, so two people publishing at the same moment can lose rows. Every chunk therefore holds the lock while it runs:
+The yearly report is published as a new version built from the one before, so two people publishing at the same moment would each leave out the other's rows. Every chunk therefore holds the lock while it runs. The lock is **create-only**: nobody renames or deletes a lock file, so it works even though nobody can edit a teammate's file.
 
-1. List `_state` and `_state/<email>/`, run `state.py --titles <both listings> --email <me> status`. Look at `lock`:
-   - `missing` → create `LOCK free` first (once, ever).
-   - `held`, not `mine`, not `stale` → someone else is running. If the user is present, tell them who and offer to wait; unattended, wait 10 minutes and check again, up to 3 times, then stop with a note in the final message (the next night catches up).
-   - `held` and `stale` (over 3 hours) or `mine` → take it.
-2. Take it: rename the lock file to the title from `state.py --email <me> title lock --lock-kind <nightly|backfill|range>`. Wait ~5 seconds, read the title again; if it is not yours, someone raced you - go back to step 1.
-3. Release it at the end of the chunk by renaming it back to `LOCK free`, even when the chunk failed. A backfill releases and re-takes the lock between months so other people's nightly runs can slip in.
+1. **Look.** List `_state` (with `createdTime`) and `_state/<email>/`, and run `state.py --titles <both listings> --email <me> status`. Look at `lock`:
+   - `free` or `missing` → go to step 2.
+   - `held` and `mine` → you already hold it (a resumed chunk): carry on.
+   - `held` by someone else → they are running. If the user is present, tell them who and since when, and offer to wait; unattended, wait 10 minutes and look again, up to 3 times, then stop with a note in the final message (the next night catches up). A claim older than 3 hours is stale and `state.py` already ignores it - no one has to clear it.
+2. **Claim.** Create an empty Google Doc in `_state/` titled exactly what `state.py --email <me> title lock --lock-kind <nightly|backfill|range>` prints (`LOCK claim <email> <time> (<kind>)`). Note the time in it.
+3. **Confirm.** Wait ~10 seconds, list `_state` again (with `createdTime`) and re-run `status`. If `lock.mine` is true, you hold the lock. If not, someone claimed first: release your claim (step 4) and go back to step 1 later. The earliest claim always wins (Drive's `createdTime` settles a same-second race), so two people can never both believe they hold it.
+4. **Release** at the end of the chunk, even when the chunk failed: create the title from `state.py --email <me> title lock-release --claim <the time in your claim>`. A backfill releases and claims again between months so other people's nightly runs can slip in.
+5. **Tidy your own** (optional, after releasing): `status` lists your old claim and release files under `lock.tidy`. Move them into `_state/<email>/` with `update_file` (`parentId`) if `get_file_metadata` shows `canMoveItemWithinDrive`; otherwise leave them - `state.py` ignores released and stale claims. Never touch anyone else's lock files.
 
 ## Modes
 

@@ -9,7 +9,7 @@ Originally built by Ken; v1.0 restructured for team distribution, model tiering,
 | Skill | What it does |
 |---|---|
 | `gmail-receipts-to-drive` | The finder. Searches the running user's Gmail, separates business / personal / home office, files one PDF per transaction, refuses second copies, asks about anything uncertain. |
-| `receipts-report` | Appends every processed item to `<YYYY>/Receipts Report <YYYY>.xlsx` (duplicates in color-coded groups) and business hotel stays to `<YYYY>/Hotel Nights <YYYY>.xlsx`. |
+| `receipts-report` | Appends every processed item to the yearly report `<YYYY>/Receipts Report <YYYY> v<NNN> (<who>).xlsx` (duplicates in color-coded groups; the highest version is current) and business hotel stays to `<YYYY>/Hotel Nights <YYYY> v<NNN> (<who>).xlsx`. Each publish is a new numbered version, because nobody can edit a file a teammate created. |
 | `receipts-backfill` | Works through the last 6 years one month at a time, newest first, checkpointing each month in Drive. "Continue the backfill" picks up where it stopped. |
 | `receipts-setup` | First-time setup and health check for a teammate, and sets up their nightly scheduled run. |
 
