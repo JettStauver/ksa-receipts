@@ -1,0 +1,204 @@
+{
+  "_about": "Vendor -> category hints used by classify.py. A hint is one signal, never a final answer: classify.py combines it with cards, addresses and settings. 'match' entries are lowercase words matched against the vendor name (whole words) or sender domain. Edit here and release a new version; per-company overrides go in Drive _settings as 'VENDOR <name> -> <Category>'.",
+  "hints": [
+    {
+      "match": [
+        "bruker"
+      ],
+      "category": "Cost of Goods Sold",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "digikey",
+        "digi-key",
+        "digi key"
+      ],
+      "category": "Cost of Goods Sold",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "mcmaster",
+        "mcmaster-carr"
+      ],
+      "category": "Cost of Goods Sold",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "online metals",
+        "onlinemetals"
+      ],
+      "category": "Cost of Goods Sold",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "icdd"
+      ],
+      "category": "Dues & Subscriptions & Events",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "labx"
+      ],
+      "category": "Dues & Subscriptions & Events",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "usps",
+        "ups",
+        "fedex",
+        "moveit",
+        "rl carriers",
+        "r+l carriers",
+        "pirate ship",
+        "shippo"
+      ],
+      "category": "Shipping & Freight",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "anthropic",
+        "openai",
+        "google workspace",
+        "microsoft",
+        "sectigo",
+        "godaddy",
+        "namecheap",
+        "cloudflare",
+        "github",
+        "adobe",
+        "dropbox",
+        "zoom"
+      ],
+      "category": "Software & Internet & IT Services",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "verizon",
+        "at&t",
+        "att",
+        "t-mobile"
+      ],
+      "category": "Software & Internet & IT Services",
+      "bp": null,
+      "note": "Monthly plan payments are Business; device/accessory purchases ask (lean Personal)."
+    },
+    {
+      "match": [
+        "quickbooks",
+        "intuit",
+        "eftps",
+        "irs",
+        "texas comptroller",
+        "comptroller"
+      ],
+      "category": "Accounting & Tax Expenses",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "txdmv",
+        "dmv"
+      ],
+      "category": "Automobile & Licensing",
+      "bp": null
+    },
+    {
+      "match": [
+        "american airlines",
+        "southwest",
+        "united airlines",
+        "delta",
+        "alaska airlines",
+        "spirit",
+        "frontier",
+        "hilton",
+        "marriott",
+        "hyatt",
+        "ihg",
+        "holiday inn",
+        "hampton",
+        "hertz",
+        "enterprise",
+        "avis",
+        "national car",
+        "budget",
+        "ntta",
+        "dfw parking",
+        "dfw airport",
+        "uber",
+        "lyft",
+        "expedia"
+      ],
+      "category": "Travel Expenses",
+      "bp": null,
+      "note": "Business only if on a business trip or business card; ask otherwise."
+    },
+    {
+      "match": [
+        "harbor freight"
+      ],
+      "category": "Fixtures & Racks & Tools",
+      "bp": null
+    },
+    {
+      "match": [
+        "home depot",
+        "lowes",
+        "lowe's"
+      ],
+      "category": "Fixtures & Racks & Tools",
+      "bp": null,
+      "note": "Often personal/home - check card and items."
+    },
+    {
+      "match": [
+        "staples",
+        "office depot",
+        "officemax"
+      ],
+      "category": "Office & Facility Supplies",
+      "bp": "Business"
+    },
+    {
+      "match": [
+        "amazon"
+      ],
+      "category": null,
+      "bp": null,
+      "note": "Category depends on items; card decides business vs personal."
+    },
+    {
+      "match": [
+        "ebay"
+      ],
+      "category": "Cost of Goods Sold",
+      "bp": null,
+      "note": "Parts are COGS; anything else ask."
+    },
+    {
+      "match": [
+        "steam",
+        "valve",
+        "epic games",
+        "nintendo",
+        "playstation",
+        "xbox",
+        "netflix",
+        "hulu",
+        "spotify",
+        "disney"
+      ],
+      "category": null,
+      "bp": "Personal",
+      "note": "Games/streaming: normally personal."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "ksa-receipts",
+  "owner": {
+    "name": "KS Analytical Systems"
+  },
+  "metadata": {
+    "description": "Claude plugins for KS Analytical Systems staff."
+  },
+  "plugins": [
+    {
+      "name": "ksa-receipts",
+      "source": "./plugins/ksa-receipts",
+      "description": "File Gmail receipts and invoices into the KSA Business Documents shared drive, with a yearly report, nightly runs and a resumable backfill.",
+      "version": "1.0.0",
+      "category": "productivity"
+    }
+  ]
+}
