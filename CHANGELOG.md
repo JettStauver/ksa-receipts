@@ -1,6 +1,7 @@
 # Changelog
 
-## ksa-receipts 1.2.0
+## ksa-receipts v26.2 (26.2.0)
+Versions are now `v26.<major>.<minor>` (stored as `26.<major>.<minor>`); this release follows 1.1.0.
 The Drive connector can only rename or move files that the same person created through it, so any step that edited a teammate's file failed. Nothing shared is edited in place any more:
 - **Run lock is create-only.** Each run creates `LOCK claim <email> <time> (<kind>)` and later `LOCK release <email> <time>`; the earliest open claim holds the lock (Drive's `createdTime` breaks same-second races) and claims go stale after 3 hours. No one renames a lock file. Old `LOCK free` / `LOCK held by ...` files are still read.
 - **Yearly reports are numbered versions:** `Receipts Report <YYYY> v<NNN> (<who>).xlsx` and `Hotel Nights <YYYY> v<NNN> (<who>).xlsx`; the highest number is current. Each person tidies only their own older versions (into `_Report history`, or renamed `OLD - ...`). New `report_versions.py`; `report_append.py` / `hotel_nights.py --also` merge two versions published with the same number, so no rows are lost.

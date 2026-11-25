@@ -11,7 +11,7 @@
       "name": "ksa-receipts",
       "source": "./plugins/ksa-receipts",
       "description": "File Gmail receipts and invoices into the KSA Business Documents shared drive, with a yearly report, nightly runs and a resumable backfill.",
-      "version": "1.2.0",
+      "version": "26.2.0",
       "category": "productivity"
     }
   ]
